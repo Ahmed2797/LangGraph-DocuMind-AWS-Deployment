@@ -47,38 +47,46 @@ The system combines **LangGraph, LLMs, vector search, semantic caching, web sear
 
 ```mermaid
 flowchart TD
-    S([START]) --> PQ[prepare_query<br/>reset state, describe image, standalone question]
-    PQ --> CC{check_semantic_cache}
-    CC -- hit --> FIN[finalize]
-    CC -- miss --> RQ{route_query}
+    S(["START"]) --> PQ["prepare_query"]
+    PQ --> CC{"check_semantic_cache"}
 
-    RQ -- direct --> GD[generate_direct]
-    RQ -- tool --> WS[web_search<br/>text + images]
-    RQ -- rag --> RET[retrieve]
+    CC -->|"Hit"| FIN["finalize"]
+    CC -->|"Miss"| RQ{"route_query"}
 
-    RET --> CRS{check_retrieval_score}
-    CRS -- relevant docs --> GFC[generate_from_context]
-    CRS -- none, retry left --> QO[query_optimizer]
+    RQ -->|"Direct"| GD["generate_direct"]
+    RQ -->|"Tool"| WS["web_search - text and images"]
+    RQ -->|"RAG"| RET["retrieve"]
+
+    RET --> CRS{"check_retrieval_score"}
+
+    CRS -->|"Relevant documents"| GFC["generate_from_context"]
+    CRS -->|"Retry available"| QO["query_optimizer"]
+    CRS -->|"Retries exhausted"| NA["no_answer_found"]
+
     QO --> RET
-    CRS -- none, no retries --> NA[no_answer_found]
 
-    GFC --> CG{check_grounded}
-    CG -- fully supported --> CU{check_useful}
-    CG -- needs fixing --> RA[revise_answer]
+    GFC --> CG{"check_grounded"}
+
+    CG -->|"Fully supported"| CU{"check_useful"}
+    CG -->|"Needs fixing"| RA["revise_answer"]
+    CG -->|"Unsupported"| NA
+
     RA --> CG
-    CG -- unsupported --> NA
 
-    CU -- useful --> EV[evaluate_answer]
-    CU -- not useful --> RW[rewrite_question]
+    CU -->|"Useful"| EV["evaluate_answer"]
+    CU -->|"Not useful"| RW["rewrite_question"]
+    CU -->|"Retries exhausted"| NA
+
     RW --> RET
-    CU -- out of retries --> NA
 
-    EV --> SC[save_cache]
+    EV --> SC["save_cache"]
     SC --> FIN
+
     GD --> FIN
     WS --> FIN
     NA --> FIN
-    FIN --> E([END])
+
+    FIN --> E(["END"])
 ```
 
 ### Nodes
